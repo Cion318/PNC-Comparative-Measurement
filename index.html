@@ -226,6 +226,24 @@
     font-family:var(--mono); font-size:12.5px;
   }
 
+  /* ---- Efficiency cards ---- */
+  .eff-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .eff-card{
+    border:1px solid var(--line); border-radius:var(--radius);
+    background:var(--panel-2); padding:16px; text-align:center;
+  }
+  .eff-card .name{
+    font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+    color:var(--text-dim);
+  }
+  .eff-card .pct{
+    font-family:var(--display); font-size:28px; font-weight:600;
+    color:var(--green); margin-top:8px;
+  }
+  .eff-card .formula{
+    font-family:var(--mono); font-size:10.5px; color:var(--text-faint); margin-top:6px;
+  }
+
   footer{
     max-width:840px; margin:26px auto 0; padding:0 2px;
     font-family:var(--mono); font-size:11px; color:var(--text-faint);
@@ -234,6 +252,7 @@
   @media (max-width:600px){
     .grid{ grid-template-columns:1fr; }
     .seq-cell{ min-width:44px; }
+    .eff-grid{ grid-template-columns:1fr; }
   }
   @media (prefers-reduced-motion: reduce){
     *{ transition:none !important; animation:none !important; }
@@ -319,6 +338,14 @@
       </div>
     </div>
 
+    <!-- Efficiency -->
+    <div class="panel" id="effPanel" style="display:none;">
+      <div class="panel-head"><span class="label">05 · Effizienz (Ø DUTx / Ø REF)</span></div>
+      <div class="panel-body">
+        <div class="eff-grid" id="effGrid"></div>
+      </div>
+    </div>
+
   </div>
 
   <footer>Läuft vollständig im Browser · keine Datei wird hochgeladen oder gespeichert.</footer>
@@ -341,6 +368,8 @@
   const calcBtn    = document.getElementById('calcBtn');
   const calcHint   = document.getElementById('calcHint');
   const resultsHost= document.getElementById('resultsHost');
+  const effPanel   = document.getElementById('effPanel');
+  const effGrid    = document.getElementById('effGrid');
 
   const flowInput = document.getElementById('flow');
   const k1Input = document.getElementById('k1');
@@ -362,6 +391,7 @@
     calcBtn.disabled = true;
     calcHint.textContent = 'Zuerst log.txt laden';
     setStatus('error', 'FEHLER BEIM LADEN');
+    effPanel.style.display = 'none';
     parsed = null;
   }
 
@@ -456,6 +486,8 @@
         calcBtn.disabled = false;
         calcHint.textContent = 'Messgrößen eingeben und berechnen';
         setStatus('ready', 'DATEI GELADEN');
+        effPanel.style.display = 'none';
+        resultsHost.innerHTML = '<div class="placeholder">Noch keine Berechnung durchgeführt.</div>';
       } catch(err){
         showError(err.message);
       }
@@ -506,6 +538,26 @@
     return n.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
   }
 
+  function fmtPct(n){
+    return n.toLocaleString('de-DE', {minimumFractionDigits:1, maximumFractionDigits:1}) + ' %';
+  }
+
+  function renderEfficiency(avg){
+    const eff = {
+      dut1: (avg.dut1 / avg.ref) * 100,
+      dut2: (avg.dut2 / avg.ref) * 100,
+      dut3: (avg.dut3 / avg.ref) * 100,
+    };
+    effGrid.innerHTML = ['dut1','dut2','dut3'].map(key => `
+      <div class="eff-card">
+        <div class="name">${key.toUpperCase()}</div>
+        <div class="pct">${fmtPct(eff[key])}</div>
+        <div class="formula">Ø ${key.toUpperCase()} / Ø REF</div>
+      </div>
+    `).join('');
+    effPanel.style.display = '';
+  }
+
   function renderResults(rows){
     const avg = {
       ref:  rows.reduce((s,r)=>s+r.ref,0)/rows.length,
@@ -522,6 +574,7 @@
     html += `<tr class="avg"><td>Ø Mittelwert</td><td>${fmt(avg.ref)}</td><td>${fmt(avg.dut1)}</td><td>${fmt(avg.dut2)}</td><td>${fmt(avg.dut3)}</td></tr>`;
     html += '</tbody></table></div>';
     resultsHost.innerHTML = html;
+    renderEfficiency(avg);
   }
 
   calcBtn.addEventListener('click', () => {
@@ -536,6 +589,7 @@
       renderResults(rows);
     } catch(err){
       resultsHost.innerHTML = '<div class="placeholder" style="color:#f2a99b;">' + err.message + '</div>';
+      effPanel.style.display = 'none';
     }
   });
 })();

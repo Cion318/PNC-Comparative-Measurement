@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCAE Auswertung · CPC Effizienzmessung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1218;
+    --panel:#161c25;
+    --panel-2:#1c2330;
+    --line:#2a3240;
+    --line-soft:#212936;
+    --text:#e8ecf1;
+    --text-dim:#8892a0;
+    --text-faint:#5b6472;
+    --amber:#f0a93a;
+    --green:#5fd78c;
+    --red:#e8664f;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --sans:'IBM Plex Sans', system-ui, sans-serif;
+    --display:'Space Grotesk', system-ui, sans-serif;
+    --radius:3px;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(240,169,58,0.06), transparent 60%),
+      radial-gradient(1200px 700px at 100% 0%, rgba(95,215,140,0.05), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding:40px 20px 80px;
+  }
+
+  a{ color:var(--amber); }
+
+  .wrap{ max-width:840px; margin:0 auto; }
+
+  /* ---- Header ---- */
+  .topbar{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:16px; margin-bottom:28px; flex-wrap:wrap;
+  }
+  .brand{ display:flex; align-items:baseline; gap:12px; }
+  .brand .mark{
+    font-family:var(--mono); font-size:12px; letter-spacing:0.14em;
+    color:var(--amber); border:1px solid var(--line); border-radius:var(--radius);
+    padding:3px 7px;
+  }
+  h1{
+    font-family:var(--display); font-weight:600; font-size:22px;
+    margin:0; letter-spacing:-0.01em;
+  }
+  h1 span{ color:var(--text-dim); font-weight:500; }
+  .status{
+    font-family:var(--mono); font-size:11px; letter-spacing:0.1em;
+    color:var(--text-faint); display:flex; align-items:center; gap:7px;
+  }
+  .status .dot{
+    width:7px; height:7px; border-radius:50%; background:var(--text-faint);
+    transition:background .25s ease, box-shadow .25s ease;
+  }
+  .status.ready .dot{ background:var(--green); box-shadow:0 0 8px rgba(95,215,140,.55); }
+  .status.error .dot{ background:var(--red); box-shadow:0 0 8px rgba(232,102,79,.55); }
+
+  /* ---- Panel ---- */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .panel + .panel{ margin-top:18px; }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 18px; border-bottom:1px solid var(--line-soft);
+    background:var(--panel-2);
+  }
+  .panel-head .label{
+    font-family:var(--mono); font-size:11px; letter-spacing:0.14em;
+    color:var(--text-dim); text-transform:uppercase;
+  }
+  .panel-body{ padding:20px; }
+
+  /* ---- Dropzone ---- */
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:var(--radius);
+    padding:28px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--amber);
+    background:rgba(240,169,58,0.04);
+  }
+  .dropzone:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }
+  .dropzone .icon{
+    font-family:var(--mono); font-size:20px; color:var(--text-dim); margin-bottom:8px;
+  }
+  .dropzone .main{ font-size:14px; color:var(--text); margin-bottom:3px; }
+  .dropzone .main strong{ color:var(--amber); font-weight:600; }
+  .dropzone .sub{ font-size:12px; color:var(--text-faint); }
+  input[type="file"]{ display:none; }
+
+  .fileinfo{
+    display:none;
+    padding:14px 18px;
+    border-top:1px solid var(--line-soft);
+    font-family:var(--mono); font-size:12px; color:var(--text-dim);
+  }
+  .fileinfo.show{ display:grid; grid-template-columns:auto 1fr; gap:5px 14px; }
+  .fileinfo .k{ color:var(--text-faint); }
+  .fileinfo .v{ color:var(--text); }
+
+  .errbox{
+    display:none;
+    padding:13px 18px;
+    border-top:1px solid var(--line-soft);
+    background:rgba(232,102,79,0.07);
+    color:#f2a99b;
+    font-family:var(--mono); font-size:12.5px; line-height:1.5;
+  }
+  .errbox.show{ display:block; }
+
+  /* ---- Sequence strip (signature element) ---- */
+  .seq-wrap{ padding:18px 20px 20px; }
+  .seq-caption{
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+    letter-spacing:.08em; margin-bottom:10px;
+  }
+  .seq-strip{
+    display:flex; gap:4px; overflow-x:auto; padding-bottom:4px;
+  }
+  .seq-cell{
+    flex:1 1 0; min-width:52px;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    padding:8px 4px 7px;
+    text-align:center;
+  }
+  .seq-cell.signal{ border-color:rgba(95,215,140,0.35); background:rgba(95,215,140,0.06); }
+  .seq-cell .tag{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.06em;
+    color:var(--text-faint);
+  }
+  .seq-cell.signal .tag{ color:var(--green); }
+  .seq-cell .val{
+    font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-top:4px;
+  }
+  .seq-cell.signal .val{ color:var(--text); }
+
+  /* ---- Inputs ---- */
+  .grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:14px;
+  }
+  .field label{
+    display:block; font-family:var(--mono); font-size:11px;
+    letter-spacing:.06em; color:var(--text-dim); margin-bottom:7px;
+  }
+  .field .inputrow{
+    display:flex; align-items:center;
+    border:1px solid var(--line); border-radius:var(--radius);
+    background:var(--bg); overflow:hidden;
+  }
+  .field input{
+    flex:1; min-width:0; background:transparent; border:0; outline:0;
+    font-family:var(--mono); font-size:14px; color:var(--text);
+    padding:10px 12px;
+  }
+  .field input::placeholder{ color:var(--text-faint); }
+  .field .unit{
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+    padding:0 12px; border-left:1px solid var(--line-soft);
+  }
+  .field .inputrow:focus-within{ border-color:var(--amber); }
+
+  .actions{ margin-top:18px; display:flex; align-items:center; gap:12px; }
+  button.calc{
+    font-family:var(--mono); font-size:12.5px; letter-spacing:.06em;
+    background:var(--amber); color:#1a1206; border:0; border-radius:var(--radius);
+    padding:11px 18px; cursor:pointer; font-weight:600;
+    transition:filter .15s ease, transform .05s ease;
+  }
+  button.calc:hover{ filter:brightness(1.08); }
+  button.calc:active{ transform:translateY(1px); }
+  button.calc:disabled{ background:var(--line); color:var(--text-faint); cursor:not-allowed; }
+  button.calc:focus-visible{ outline:2px solid var(--green); outline-offset:3px; }
+  .hint{ font-size:12px; color:var(--text-faint); }
+
+  /* ---- Results table ---- */
+  .table-scroll{ overflow-x:auto; }
+  table{
+    width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px;
+    min-width:520px;
+  }
+  thead th{
+    text-align:right; font-weight:500; font-size:10.5px; letter-spacing:.1em;
+    color:var(--text-faint); text-transform:uppercase;
+    padding:0 18px 10px; border-bottom:1px solid var(--line);
+  }
+  thead th:first-child{ text-align:left; }
+  tbody td{
+    text-align:right; padding:10px 18px; border-bottom:1px solid var(--line-soft);
+    color:var(--text);
+  }
+  tbody td:first-child{ text-align:left; color:var(--text-dim); }
+  tbody tr:last-child td{ border-bottom:0; }
+  tbody tr.avg td{
+    border-top:1px solid var(--line); font-weight:600; color:var(--green);
+    background:rgba(95,215,140,0.04);
+  }
+  tbody tr.avg td:first-child{ color:var(--green); }
+
+  .placeholder{
+    padding:32px 20px; text-align:center; color:var(--text-faint);
+    font-family:var(--mono); font-size:12.5px;
+  }
+
+  footer{
+    max-width:840px; margin:26px auto 0; padding:0 2px;
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+  }
+
+  @media (max-width:600px){
+    .grid{ grid-template-columns:1fr; }
+    .seq-cell{ min-width:44px; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <div class="brand">
+        <span class="mark">FCAE</span>
+        <h1>Effizienz-Auswertung <span>· CPC Blockkonzentration</span></h1>
+      </div>
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">WARTE AUF DATEI</span></div>
+    </div>
+
+    <!-- File load -->
+    <div class="panel">
+      <div class="panel-head"><span class="label">01 · log.txt laden</span></div>
+      <div class="panel-body" style="padding-top:18px;">
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="log.txt auswählen oder hierher ziehen">
+          <div class="icon">↓</div>
+          <div class="main"><strong>log.txt hierher ziehen</strong> oder klicken zum Auswählen</div>
+          <div class="sub">Format wie FCAE_EFF · Header mit Ref_avg / DUT1_avg / DUT2_avg / DUT3_avg · 11 Datenzeilen</div>
+        </div>
+        <input type="file" id="fileInput" accept=".txt,.log,.cpc10">
+      </div>
+      <div class="fileinfo" id="fileinfo">
+        <span class="k">Datei</span><span class="v" id="fiName">—</span>
+        <span class="k">Test</span><span class="v" id="fiTest">—</span>
+        <span class="k">Datum</span><span class="v" id="fiDate">—</span>
+      </div>
+      <div class="errbox" id="errbox"></div>
+    </div>
+
+    <!-- Sequence strip -->
+    <div class="panel" id="seqPanel" style="display:none;">
+      <div class="panel-head"><span class="label">02 · Messsequenz (Ref_avg, roh)</span></div>
+      <div class="seq-wrap">
+        <div class="seq-caption">11 Zeilen · Null (Elektrometer-Offset) alterniert mit Signal (Block 1–5)</div>
+        <div class="seq-strip" id="seqStrip"></div>
+      </div>
+    </div>
+
+    <!-- Inputs -->
+    <div class="panel">
+      <div class="panel-head"><span class="label">03 · Messgrößen</span></div>
+      <div class="panel-body">
+        <div class="grid">
+          <div class="field">
+            <label for="flow">Fluss Referenzgerät</label>
+            <div class="inputrow">
+              <input type="text" id="flow" placeholder="z. B. 0,999" inputmode="decimal">
+              <span class="unit">LPM</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="k1">k-Faktor DUT1</label>
+            <div class="inputrow"><input type="text" id="k1" placeholder="z. B. 1,00" inputmode="decimal"></div>
+          </div>
+          <div class="field">
+            <label for="k2">k-Faktor DUT2</label>
+            <div class="inputrow"><input type="text" id="k2" placeholder="z. B. 1,00" inputmode="decimal"></div>
+          </div>
+          <div class="field">
+            <label for="k3">k-Faktor DUT3</label>
+            <div class="inputrow"><input type="text" id="k3" placeholder="z. B. 1,00" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="calc" id="calcBtn" disabled>Berechnen</button>
+          <span class="hint" id="calcHint">Zuerst log.txt laden</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="panel">
+      <div class="panel-head"><span class="label">04 · Blockkonzentrationen</span></div>
+      <div id="resultsHost">
+        <div class="placeholder">Noch keine Berechnung durchgeführt.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>Läuft vollständig im Browser · keine Datei wird hochgeladen oder gespeichert.</footer>
+
+<script>
+(function(){
+  const E_CHARGE = 1.602176634e-19; // Elementarladung, Coulomb
+
+  const dropzone   = document.getElementById('dropzone');
+  const fileInput  = document.getElementById('fileInput');
+  const fileinfo   = document.getElementById('fileinfo');
+  const fiName     = document.getElementById('fiName');
+  const fiTest     = document.getElementById('fiTest');
+  const fiDate     = document.getElementById('fiDate');
+  const errbox     = document.getElementById('errbox');
+  const statusEl   = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const seqPanel   = document.getElementById('seqPanel');
+  const seqStrip   = document.getElementById('seqStrip');
+  const calcBtn    = document.getElementById('calcBtn');
+  const calcHint   = document.getElementById('calcHint');
+  const resultsHost= document.getElementById('resultsHost');
+
+  const flowInput = document.getElementById('flow');
+  const k1Input = document.getElementById('k1');
+  const k2Input = document.getElementById('k2');
+  const k3Input = document.getElementById('k3');
+
+  let parsed = null; // { ref, dut1, dut2, dut3, meta }
+
+  function setStatus(mode, text){
+    statusEl.className = 'status' + (mode ? ' ' + mode : '');
+    statusText.textContent = text;
+  }
+
+  function showError(msg){
+    errbox.textContent = msg;
+    errbox.classList.add('show');
+    fileinfo.classList.remove('show');
+    seqPanel.style.display = 'none';
+    calcBtn.disabled = true;
+    calcHint.textContent = 'Zuerst log.txt laden';
+    setStatus('error', 'FEHLER BEIM LADEN');
+    parsed = null;
+  }
+
+  function parseNum(str){
+    const n = parseFloat(String(str).trim().replace(',', '.'));
+    if (Number.isNaN(n)) throw new Error('Ungültiger Zahlenwert: "' + str + '"');
+    return n;
+  }
+
+  function parseLog(text){
+    const lines = text.split(/\r?\n/);
+
+    let headerIdx = -1, headerCols = null;
+    for (let i = 0; i < lines.length; i++){
+      const cols = lines[i].split('\t');
+      if (cols.includes('Ref_avg') && cols.includes('DUT1_avg')){
+        headerIdx = i; headerCols = cols; break;
+      }
+    }
+    if (headerIdx === -1){
+      throw new Error('Header-Zeile mit "Ref_avg" / "DUT1_avg" nicht gefunden.');
+    }
+
+    const iRef  = headerCols.indexOf('Ref_avg');
+    const iDut1 = headerCols.indexOf('DUT1_avg');
+    const iDut2 = headerCols.indexOf('DUT2_avg');
+    const iDut3 = headerCols.indexOf('DUT3_avg');
+    if ([iRef, iDut1, iDut2, iDut3].includes(-1)){
+      throw new Error('Erwartete Spalte fehlt im Header (Ref_avg/DUT1_avg/DUT2_avg/DUT3_avg).');
+    }
+
+    const dataLines = lines.slice(headerIdx + 1, headerIdx + 12);
+    if (dataLines.length < 11 || dataLines.some(l => l.trim() === '')){
+      throw new Error('Es wurden nicht genau 11 Datenzeilen nach dem Header gefunden.');
+    }
+
+    const ref = [], dut1 = [], dut2 = [], dut3 = [];
+    for (const line of dataLines){
+      const cols = line.split('\t');
+      ref.push(parseNum(cols[iRef]));
+      dut1.push(parseNum(cols[iDut1]));
+      dut2.push(parseNum(cols[iDut2]));
+      dut3.push(parseNum(cols[iDut3]));
+    }
+
+    // Heuristik für Anzeige: Testname (Zeile kurz vor Header) und Datum (erste Zeile im Format JJJJ-MM-TT_hh-mm)
+    let testname = '—', datum = '—';
+    for (let i = headerIdx - 1; i >= 0; i--){
+      const t = lines[i].trim();
+      if (t !== ''){ testname = t; break; }
+    }
+    for (let i = 0; i < headerIdx; i++){
+      const t = lines[i].trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(t)){ datum = t; break; }
+    }
+
+    return { ref, dut1, dut2, dut3, meta: { testname, datum } };
+  }
+
+  function renderSequence(ref){
+    seqStrip.innerHTML = '';
+    let blockNum = 0;
+    ref.forEach((val, i) => {
+      const isSignal = i % 2 === 1;
+      if (isSignal) blockNum++;
+      const cell = document.createElement('div');
+      cell.className = 'seq-cell' + (isSignal ? ' signal' : '');
+      const tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = isSignal ? ('S' + blockNum) : 'NULL';
+      const v = document.createElement('div');
+      v.className = 'val';
+      v.textContent = val.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
+      cell.appendChild(tag); cell.appendChild(v);
+      seqStrip.appendChild(cell);
+    });
+    seqPanel.style.display = '';
+  }
+
+  function handleFile(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const data = parseLog(String(reader.result));
+        parsed = data;
+        errbox.classList.remove('show');
+        fiName.textContent = file.name;
+        fiTest.textContent = data.meta.testname;
+        fiDate.textContent = data.meta.datum;
+        fileinfo.classList.add('show');
+        renderSequence(data.ref);
+        calcBtn.disabled = false;
+        calcHint.textContent = 'Messgrößen eingeben und berechnen';
+        setStatus('ready', 'DATEI GELADEN');
+      } catch(err){
+        showError(err.message);
+      }
+    };
+    reader.onerror = () => showError('Datei konnte nicht gelesen werden.');
+    reader.readAsText(file, 'utf-8');
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileInput.click(); }
+  });
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+  ['dragenter','dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag'); })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); })
+  );
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  function computeBlocks(data, flowLpm, k1, k2, k3){
+    const { ref, dut1, dut2, dut3 } = data;
+    const flowCm3s = flowLpm * 1000 / 60;
+    const rows = [];
+    for (let block = 1; block <= 5; block++){
+      const idx = 2 * block - 1; // 0-basiert: Zeile 2,4,6,8,10 -> Index 1,3,5,7,9
+      const offset = (ref[idx - 1] + ref[idx + 1]) / 2;
+      const refSignal = ref[idx] - offset;
+      const refKonz = (refSignal * 1e-15) / (E_CHARGE * flowCm3s);
+      rows.push({
+        block,
+        ref: refKonz,
+        dut1: dut1[idx] * k1,
+        dut2: dut2[idx] * k2,
+        dut3: dut3[idx] * k3
+      });
+    }
+    return rows;
+  }
+
+  function fmt(n){
+    return n.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function renderResults(rows){
+    const avg = {
+      ref:  rows.reduce((s,r)=>s+r.ref,0)/rows.length,
+      dut1: rows.reduce((s,r)=>s+r.dut1,0)/rows.length,
+      dut2: rows.reduce((s,r)=>s+r.dut2,0)/rows.length,
+      dut3: rows.reduce((s,r)=>s+r.dut3,0)/rows.length,
+    };
+    let html = '<div class="table-scroll"><table><thead><tr>' +
+      '<th>Block</th><th>REF</th><th>DUT1</th><th>DUT2</th><th>DUT3</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(r => {
+      html += `<tr><td>Block ${r.block}</td><td>${fmt(r.ref)}</td><td>${fmt(r.dut1)}</td><td>${fmt(r.dut2)}</td><td>${fmt(r.dut3)}</td></tr>`;
+    });
+    html += `<tr class="avg"><td>Ø Mittelwert</td><td>${fmt(avg.ref)}</td><td>${fmt(avg.dut1)}</td><td>${fmt(avg.dut2)}</td><td>${fmt(avg.dut3)}</td></tr>`;
+    html += '</tbody></table></div>';
+    resultsHost.innerHTML = html;
+  }
+
+  calcBtn.addEventListener('click', () => {
+    if (!parsed) return;
+    try{
+      const flow = parseNum(flowInput.value || '');
+      const k1 = parseNum(k1Input.value || '');
+      const k2 = parseNum(k2Input.value || '');
+      const k3 = parseNum(k3Input.value || '');
+      if (flow <= 0) throw new Error('Fluss muss größer als 0 sein.');
+      const rows = computeBlocks(parsed, flow, k1, k2, k3);
+      renderResults(rows);
+    } catch(err){
+      resultsHost.innerHTML = '<div class="placeholder" style="color:#f2a99b;">' + err.message + '</div>';
+    }
+  });
+})();
+</script>
+</body>
+</html>
